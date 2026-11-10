@@ -2,22 +2,37 @@
    the rarer the answer, the deeper your roots grow. Every list here is hand-curated and meant
    to be edited: add an answer as [name, tier, ...aliases]. */
 
-export type Tier = 'topsoil' | 'loam' | 'clay' | 'bedrock' | 'taproot'
+export type Tier = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'exotic' | 'mythic' | 'prismatic'
 
-export const TIERS: Record<Tier, { label: string; ft: number; note: string }> = {
-  topsoil: { label: 'Topsoil', ft: 5, note: 'half of campus said it' },
-  loam: { label: 'Loam', ft: 15, note: 'a solid pick' },
-  clay: { label: 'Clay', ft: 30, note: 'not many people got there' },
-  bedrock: { label: 'Bedrock', ft: 55, note: 'a real Berkeley answer' },
-  taproot: { label: 'Taproot', ft: 90, note: 'almost nobody knows this one' },
+/* ft is how far one answer grows your roots. Prismatic is the single rarest answer to each prompt:
+   exactly one per prompt. */
+export const TIERS: Record<Tier, { label: string; ft: number; color: string }> = {
+  common: { label: 'Common', ft: 5, color: '#9aa1ab' },
+  uncommon: { label: 'Uncommon', ft: 10, color: '#4cc76a' },
+  rare: { label: 'Rare', ft: 20, color: '#3d8bff' },
+  epic: { label: 'Epic', ft: 35, color: '#a66bff' },
+  legendary: { label: 'Legendary', ft: 50, color: '#ff8a1f' },
+  exotic: { label: 'Exotic', ft: 70, color: '#22d3ee' },
+  mythic: { label: 'Mythic', ft: 90, color: '#fdb515' },
+  prismatic: { label: 'Prismatic', ft: 120, color: '#ff5fd2' },
 }
-export const TIER_ORDER: Tier[] = ['topsoil', 'loam', 'clay', 'bedrock', 'taproot']
+export const TIER_ORDER: Tier[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'exotic', 'mythic', 'prismatic']
+
+/* Depth guides drawn in the soil, in feet. */
+export const STRATA = [
+  { label: 'topsoil', ft: 10 },
+  { label: 'loam', ft: 30 },
+  { label: 'clay', ft: 55 },
+  { label: 'bedrock', ft: 85 },
+  { label: 'taproot', ft: 120 },
+]
 
 type Row = [string, Tier, ...string[]]
 export type Answer = { id: string; name: string; tier: Tier; keys: string[] }
 export type Prompt = { id: string; text: string; answers: Answer[] }
 
-const T: Tier = 'topsoil', L: Tier = 'loam', C: Tier = 'clay', B: Tier = 'bedrock', R: Tier = 'taproot'
+const T: Tier = 'common', L: Tier = 'uncommon', C: Tier = 'rare', B: Tier = 'epic', R: Tier = 'legendary'
+const X: Tier = 'exotic', M: Tier = 'mythic', P: Tier = 'prismatic'
 
 const RAW: { id: string; text: string; rows: Row[] }[] = [
   {
@@ -33,7 +48,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
       ['Morgan Hall', B], ['Koshland Hall', B], ['Sutardja Dai Hall', B, 'sdh'], ['McCone Hall', B], ['Birge Hall', B], ['LeConte Hall', B, 'le conte hall'],
       ['Campbell Hall', B], ['Hertz Hall', B], ['Morrison Hall', B], ['Stephens Hall', B], ['Moses Hall', B], ['Durant Hall', B], ['California Hall', B],
       ['Davis Hall', B], ['McLaughlin Hall', B], ['Cheit Hall', B], ['Eshleman Hall', B], ['Berkeley Way West', B], ['North Gate Hall', B], ['Faculty Club', B],
-      ['Anthony Hall', R], ['Womens Faculty Club', R], ['Blum Hall', R], ['Hesse Hall', R], ['OBrien Hall', R], ['Minor Hall', R], ['Haviland Hall', R], ['Gilman Hall', R], ['Tolman Hall', R],
+      ['Anthony Hall', X], ['Womens Faculty Club', M], ['Blum Hall', R], ['Hesse Hall', R], ['OBrien Hall', R], ['Minor Hall', X], ['Haviland Hall', X], ['Gilman Hall', P], ['Tolman Hall', M],
     ],
   },
   {
@@ -41,7 +56,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
     rows: [
       ['Football', T], ['Basketball', T, 'hoops'], ['Soccer', T], ['Swimming', L, 'swim', 'swim and dive'], ['Water polo', L], ['Rugby', L], ['Rowing', L, 'crew'],
       ['Baseball', L], ['Volleyball', L], ['Softball', C], ['Tennis', C], ['Golf', C], ['Gymnastics', C], ['Track and field', C, 'track'], ['Cross country', C, 'xc'],
-      ['Field hockey', B], ['Lacrosse', B], ['Beach volleyball', B, 'sand volleyball'], ['Diving', R],
+      ['Field hockey', X], ['Lacrosse', R], ['Beach volleyball', M, 'sand volleyball'], ['Diving', P],
     ],
   },
   {
@@ -52,7 +67,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
       ['Mountain View', C], ['Sunnyvale', C], ['Santa Clara', C], ['Cupertino', C], ['Redwood City', C], ['Menlo Park', C], ['San Leandro', C], ['Concord', C],
       ['Lafayette', B], ['Moraga', B], ['Pleasanton', B], ['Livermore', B], ['Dublin', B], ['San Ramon', B], ['Danville', B], ['Mill Valley', B], ['San Rafael', B],
       ['Vallejo', B], ['Pacifica', B], ['Half Moon Bay', B], ['Burlingame', B], ['Millbrae', B], ['Union City', B], ['Newark', B], ['Martinez', B], ['Novato', B],
-      ['Hercules', R], ['Pinole', R], ['Benicia', R], ['Tiburon', R], ['Belvedere', R], ['Larkspur', R], ['Brisbane', R], ['Colma', R], ['Atherton', R],
+      ['Hercules', R], ['Pinole', R], ['Benicia', R], ['Tiburon', R], ['Belvedere', M], ['Larkspur', R], ['Brisbane', X], ['Colma', P], ['Atherton', X],
     ],
   },
   {
@@ -60,14 +75,14 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
     rows: [
       ['CS 61A', T, '61a', 'cs61a'], ['Data 8', T, 'data8', 'data c8'], ['CS 61B', L, '61b', 'cs61b'], ['Math 1A', L], ['Math 53', L, 'multivariable calculus'],
       ['Math 54', L, 'linear algebra'], ['Chem 1A', L], ['Econ 1', L], ['CS 70', C, 'cs70'], ['CS 61C', C, '61c', 'cs61c'], ['Math 1B', C], ['Physics 7A', C],
-      ['EECS 16A', C, '16a'], ['EECS 16B', B, '16b'], ['Physics 7B', B], ['Chem 3A', B], ['Stat 20', B], ['Psych 1', B], ['Bio 1A', B], ['Physics 8A', R], ['Chem 3B', R], ['Math 10A', R],
+      ['EECS 16A', C, '16a'], ['EECS 16B', B, '16b'], ['Physics 7B', B], ['Chem 3A', B], ['Stat 20', B], ['Psych 1', B], ['Bio 1A', B], ['Physics 8A', P], ['Chem 3B', X], ['Math 10A', M],
     ],
   },
   {
     id: 'eats', text: 'A dining hall or campus spot to eat',
     rows: [
       ['Crossroads', T], ['Cafe 3', T, 'cafe three', 'c3'], ['Foothill Dining', L, 'foothill'], ['Clark Kerr Dining', L, 'ckc dining', 'ckc'], ['Golden Bear Cafe', L, 'gbc'],
-      ['Bear Market', C], ['Pat Browns', C], ['The Den', C], ['Browns Cafe', B, 'browns'], ['Ladle and Leaf', B], ['Free Speech Movement Cafe', B, 'fsm cafe', 'fsm'], ['Cafe Think', R],
+      ['Bear Market', C], ['Pat Browns', C], ['The Den', C], ['Browns Cafe', B, 'browns'], ['Ladle and Leaf', R], ['Free Speech Movement Cafe', X, 'fsm cafe', 'fsm'], ['Cafe Think', P],
     ],
   },
   {
@@ -75,7 +90,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
     rows: [
       ['Unit 1', T], ['Unit 2', T], ['Unit 3', T], ['Clark Kerr Campus', L, 'clark kerr', 'ckc'], ['Foothill', L], ['Blackwell Hall', L, 'blackwell', 'david blackwell hall'],
       ['Martinez Commons', C, 'martinez'], ['Stern Hall', C, 'stern'], ['Bowles Hall', C, 'bowles'], ['International House', C, 'i house', 'ihouse'], ['Channing-Bowditch', B, 'channing bowditch'],
-      ['University Village', B, 'uv', 'albany village'], ['Anchor House', B], ['Co-op', B, 'coop', 'bsc', 'berkeley student cooperative', 'a co op'], ['Cloyne Court', R, 'cloyne'], ['Casa Zimbabwe', R, 'cz'], ['Rochdale', R],
+      ['University Village', B, 'uv', 'albany village'], ['Anchor House', R], ['Co-op', B, 'coop', 'bsc', 'berkeley student cooperative', 'a co op'], ['Cloyne Court', P, 'cloyne'], ['Casa Zimbabwe', M, 'cz'], ['Rochdale', X],
     ],
   },
   {
@@ -84,7 +99,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
       ['Memorial Glade', T, 'the glade'], ['Sproul Plaza', T, 'sproul', 'upper sproul'], ['Sather Gate', T], ['Strawberry Creek', L], ['Faculty Glade', L],
       ['Eucalyptus Grove', L, 'euc grove'], ['The Big C', L, 'big c', 'charter hill'], ['Greek Theatre', C, 'greek theater', 'the greek'], ['Botanical Garden', C, 'uc botanical garden'],
       ['Tilden Park', C, 'tilden'], ['Indian Rock', C], ['Lawrence Hall of Science', C, 'lawrence hall'], ['Grizzly Peak', C], ['Tightwad Hill', B], ['Lower Sproul', B],
-      ['Crescent Lawn', B], ['Dwinelle Plaza', B], ['Peoples Park', B], ['North Gate', B, 'northgate'], ['Observatory Hill', R], ['Founders Rock', R], ['West Circle', R],
+      ['Crescent Lawn', B], ['Dwinelle Plaza', B], ['Peoples Park', B], ['North Gate', B, 'northgate'], ['Observatory Hill', M], ['Founders Rock', P], ['West Circle', X],
     ],
   },
   {
@@ -94,7 +109,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
       ['College Avenue', L, 'college'], ['Oxford Street', L, 'oxford'], ['Euclid Avenue', L, 'euclid'], ['Channing Way', C, 'channing'], ['Haste Street', C, 'haste'],
       ['Dwight Way', C, 'dwight'], ['Piedmont Avenue', C, 'piedmont'], ['Gayley Road', C, 'gayley'], ['La Loma Avenue', C, 'la loma'], ['Le Conte Avenue', B, 'leconte'],
       ['Ridge Road', B, 'ridge'], ['Dana Street', B, 'dana'], ['Ellsworth Street', B, 'ellsworth'], ['Bowditch Street', B, 'bowditch'], ['Fulton Street', B, 'fulton'],
-      ['Scenic Avenue', R, 'scenic'], ['Arch Street', R, 'arch'], ['Center Street', R, 'center'], ['Allston Way', R, 'allston'], ['Kittredge Street', R, 'kittredge'],
+      ['Scenic Avenue', P, 'scenic'], ['Arch Street', M, 'arch'], ['Center Street', R, 'center'], ['Allston Way', R, 'allston'], ['Kittredge Street', X, 'kittredge'],
     ],
   },
   {
@@ -106,15 +121,15 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
       ['West Oakland', C], ['Lake Merritt', C], ['El Cerrito Plaza', C], ['El Cerrito del Norte', C, 'del norte'], ['Richmond', C], ['SFO', C, 'sfo airport', 'san francisco international airport'],
       ['Fruitvale', B], ['Coliseum', B], ['Orinda', B], ['Lafayette', B], ['Walnut Creek', B], ['Pleasant Hill', B], ['Concord', B], ['Glen Park', B], ['Balboa Park', B],
       ['Daly City', B], ['Millbrae', B], ['Fremont', B], ['Milpitas', B], ['Berryessa', B], ['Dublin/Pleasanton', B, 'dublin pleasanton', 'dublin'], ['Oakland Airport', B],
-      ['San Leandro', R], ['Bay Fair', R, 'bayfair'], ['Hayward', R], ['South Hayward', R], ['Union City', R], ['Warm Springs', R], ['Castro Valley', R], ['West Dublin', R],
-      ['North Concord', R], ['Pittsburg/Bay Point', R, 'pittsburg bay point', 'bay point'], ['Pittsburg Center', R], ['Antioch', R], ['Colma', R], ['South San Francisco', R], ['San Bruno', R],
+      ['San Leandro', R], ['Bay Fair', R, 'bayfair'], ['Hayward', R], ['South Hayward', R], ['Union City', R], ['Warm Springs', R], ['Castro Valley', X], ['West Dublin', X],
+      ['North Concord', P, 'north concord martinez', 'north concord/martinez'], ['Pittsburg/Bay Point', R, 'pittsburg bay point', 'bay point'], ['Pittsburg Center', M], ['Antioch', R], ['Colma', R], ['South San Francisco', R], ['San Bruno', R],
     ],
   },
   {
     id: 'element', text: 'A chemical element discovered at Berkeley',
     rows: [
       ['Berkelium', T], ['Californium', L], ['Plutonium', L], ['Seaborgium', C], ['Lawrencium', C], ['Mendelevium', B], ['Neptunium', B], ['Einsteinium', B],
-      ['Fermium', B], ['Astatine', R], ['Nobelium', R], ['Rutherfordium', R], ['Dubnium', R],
+      ['Fermium', B], ['Astatine', P], ['Nobelium', M], ['Rutherfordium', R], ['Dubnium', X],
     ],
   },
   {
@@ -122,14 +137,14 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
     rows: [
       ['Stanford', T, 'the farm'], ['Duke', L], ['Clemson', L], ['Miami', L, 'the u'], ['North Carolina', L, 'unc'], ['Florida State', L, 'fsu'], ['SMU', C, 'southern methodist'],
       ['Notre Dame', C], ['Virginia', C, 'uva'], ['Virginia Tech', C], ['Louisville', C], ['Syracuse', C], ['Georgia Tech', B], ['NC State', B, 'north carolina state'],
-      ['Pitt', B, 'pittsburgh'], ['Boston College', B, 'bc'], ['Wake Forest', R],
+      ['Pitt', B, 'pittsburgh'], ['Boston College', R, 'bc'], ['Wake Forest', P],
     ],
   },
   {
     id: 'coffee', text: 'A place to get coffee in Berkeley',
     rows: [
       ['Peets', T], ['Philz', T], ['Starbucks', L], ['Caffe Strada', L, 'strada'], ['Blue Bottle', C], ['Cafe Milano', C, 'milano'], ['Free Speech Movement Cafe', C, 'fsm cafe', 'fsm'],
-      ['Yalis', B], ['Brewed Awakening', B], ['Nefeli Caffe', B, 'nefeli'], ['Romeos Coffee', B, 'romeos'], ['Cafe Think', R], ['Caffe Mediterraneum', R, 'the med', 'mediterraneum'],
+      ['Yalis', B], ['Brewed Awakening', B], ['Nefeli Caffe', B, 'nefeli'], ['Romeos Coffee', B, 'romeos'], ['Cafe Think', M], ['Caffe Mediterraneum', P, 'the med', 'mediterraneum'],
     ],
   },
   {
@@ -137,7 +152,7 @@ const RAW: { id: string; text: string; rows: Row[] }[] = [
     rows: [
       ['Big Game', T], ['Go Bears', T], ['Oski', T], ['The Axe', L, 'stanford axe', 'axe'], ['Cal Band', L, 'the band'], ['The Big C', L, 'big c'],
       ['Card stunts', C, 'card stunt'], ['Victory Bell', C, 'bell'], ['Tightwad Hill', C], ['Bonfire Rally', B, 'bonfire'], ['Axe Rally', B], ['Campanile bells', B, 'carillon', 'bells'],
-      ['The Play', B, 'the band is on the field'], ['Painting the C', R], ['Senior Bench', R], ['Rally Committee', R, 'rally comm'],
+      ['The Play', B, 'the band is on the field'], ['Painting the C', P], ['Senior Bench', M], ['Rally Committee', R, 'rally comm'],
     ],
   },
 ]
@@ -181,6 +196,13 @@ export const PROMPTS: Prompt[] = RAW.map(({ id, text, rows }) => ({
     keys: [...new Set([name, ...aliases].map(core))],
   })),
 }))
+
+if (import.meta.env?.DEV) {
+  for (const p of PROMPTS) {
+    const n = p.answers.filter((a) => a.tier === 'prismatic').length
+    if (n !== 1) console.warn(`Deep Roots: prompt "${p.id}" has ${n} prismatic answers; it should have exactly 1.`)
+  }
+}
 
 /* Forgiving match: case, punctuation, "the" and words like "hall" don't matter, and a typo or two
    is fine on longer names. Anything with a number (Unit 2, CS 61B) has to match exactly. */
@@ -276,4 +298,8 @@ export function loadStreak(day: number) {
 export const promptById = (id: string) => PROMPTS.find((p) => p.id === id)!
 export const answerById = (p: Prompt, id: string | null) => (id ? p.answers.find((a) => a.id === id) ?? null : null)
 export const feetOf = (picks: Pick[]) =>
-  picks.reduce((sum, k) => sum + (answerById(promptById(k.promptId), k.answerId) ? TIERS[answerById(promptById(k.promptId), k.answerId)!.tier].ft : 0), 0)
+  picks.reduce((sum, k) => {
+    const p = PROMPTS.find((x) => x.id === k.promptId)
+    const a = p ? answerById(p, k.answerId) : null
+    return sum + (a ? TIERS[a.tier].ft : 0)
+  }, 0)

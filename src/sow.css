@@ -231,6 +231,7 @@ h1, h2, h3, p { margin: 0; }
 
 /* Deep Roots: Golden Bear colours inside its own console only */
 .console--roots {
+  --prism: linear-gradient(90deg, #ff4d6d, #ff9f1c, #ffe14d, #4cc76a, #22d3ee, #3d8bff, #a66bff, #ff4d6d);
   --bear-blue: #003262; --bear-gold: #fdb515; --bear-deep: #00213f; --bear-line: #1d4a78;
   background: var(--bear-blue); box-shadow: 8px 8px 0 var(--bear-gold);
 }
@@ -259,18 +260,24 @@ h1, h2, h3, p { margin: 0; }
 .rg-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .rg-flash { font-family: var(--mono); font-size: 14px; min-height: 1.5em; }
 .rg-flash.is-miss { color: #ffb4a6; }
-.rg-flash.is-topsoil, .rg-flash.is-loam, .rg-flash.is-clay, .rg-flash.is-bedrock, .rg-flash.is-taproot { color: var(--bear-gold); font-weight: 700; }
+.rg-flash.is-hit { color: var(--tier); font-weight: 700; }
+.rg-flash.is-ok { color: var(--bear-gold); font-weight: 700; }
+.rg-flash.is-prismatic, .is-prismatic .rg-list__a { background: var(--prism); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rg-prism 3s linear infinite; }
 .roots-game .link-btn { color: var(--cream); font-size: 15px; }
 .roots-game .link-btn:disabled { opacity: .4; cursor: default; }
 .rg-total { font-size: 20px; }
 .rg-total b { font-weight: 800; font-size: 56px; letter-spacing: -.04em; color: var(--bear-gold); margin-right: 6px; }
-.rg-squares { font-size: 22px; letter-spacing: 2px; }
 .rg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.rg-list li { display: grid; gap: 1px; padding-bottom: 8px; border-bottom: 1px solid var(--bear-line); }
+.rg-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 12px; align-items: start; padding-bottom: 8px; border-bottom: 1px solid var(--bear-line); }
+.rg-list__body { display: grid; gap: 1px; min-width: 0; }
+.rg-dot { width: 18px; height: 18px; margin-top: 22px; border-radius: 50%; background: var(--tier, transparent); border: 2px solid var(--tier, rgba(255, 248, 236, .35)); box-shadow: 0 0 0 3px rgba(0, 0, 0, .25); }
+.rg-list li.is-miss .rg-dot { background: transparent; border-style: dashed; }
+.rg-list li.is-prismatic .rg-dot { background: var(--prism); background-size: 300% 100%; border-color: #fff; animation: rg-prism 3s linear infinite; box-shadow: 0 0 10px rgba(255, 255, 255, .55); }
 .rg-list__p { font-size: 14px; opacity: .75; }
 .rg-list__a { font-weight: 700; font-size: 16px; }
-.rg-list__a.is-miss { opacity: .6; font-weight: 500; }
-.rg-list__a.is-bedrock, .rg-list__a.is-taproot { color: var(--bear-gold); }
+.rg-list li.is-hit .rg-list__a { color: var(--tier); }
+.rg-list__tier { font-family: var(--mono); font-size: 12px; font-weight: 500; opacity: .9; margin-left: 4px; }
+.rg-list li.is-miss .rg-list__a { opacity: .6; font-weight: 500; }
 .rg-list__rare { font-family: var(--mono); font-size: 12px; opacity: .65; }
 .rg-svg { width: 100%; height: auto; display: block; border-radius: 16px; overflow: hidden; background: #0d4a85; }
 .rg-ground { fill: none; stroke: #7fc06a; stroke-width: 4; stroke-linecap: round; }
@@ -279,14 +286,14 @@ h1, h2, h3, p { margin: 0; }
 .rg-stratum line { stroke: rgba(255, 248, 236, .14); stroke-dasharray: 3 5; }
 .rg-stratum text { fill: rgba(255, 248, 236, .45); font-family: var(--mono); font-size: 11px; }
 .rg-root path { fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; animation: rg-grow .9s var(--m-ease) both; }
-.rg-root.is-topsoil path { stroke: #f2dfa8; stroke-width: 3; }
-.rg-root.is-loam path { stroke: #f7cd6b; stroke-width: 3.5; }
-.rg-root.is-clay path { stroke: #fdb515; stroke-width: 4; }
-.rg-root.is-bedrock path { stroke: #ffc933; stroke-width: 5; }
-.rg-root.is-taproot path { stroke: #fff1c4; stroke-width: 6; filter: drop-shadow(0 0 4px rgba(253, 181, 21, .8)); }
+.rg-root.is-mythic path, .rg-root.is-exotic path { filter: drop-shadow(0 0 3px currentColor); }
+.rg-root.is-mythic { color: #fdb515; }
+.rg-root.is-exotic { color: #22d3ee; }
+.rg-root.is-prismatic path { filter: drop-shadow(0 0 5px rgba(255, 255, 255, .7)); }
 .rg-root.is-miss path { stroke: rgba(255, 248, 236, .35); stroke-width: 2; stroke-dasharray: .2 .15; animation: none; }
-.rg-root .rg-fork { stroke-width: 2.5 !important; animation-delay: .6s; }
+.rg-root .rg-fork { stroke-width: 2.5px !important; animation-delay: .6s; }
 @keyframes rg-grow { from { stroke-dashoffset: 1; } }
+@keyframes rg-prism { to { background-position: 300% 0; } }
 .rg-party { display: grid; gap: 16px; }
 .rg-party__top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
 .rg-code { font-size: 18px; letter-spacing: .12em; color: var(--cream); }
@@ -304,6 +311,18 @@ h1, h2, h3, p { margin: 0; }
 .rg-seat.is-holder .rg-acorn { animation: rg-jitter .5s ease-in-out infinite; }
 @keyframes rg-jitter { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 .rg-used { font-size: 14px; opacity: .75; }
+.rg-board { margin-top: 28px; padding: 18px 20px; border-radius: 22px; background: rgba(0, 20, 40, .45); border: 2px solid var(--bear-line); }
+.rg-board__h { margin: 0 0 12px; font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+.rg-board__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rg-board__list li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--bear-line); }
+.rg-board__list li:last-child { border-bottom: 0; }
+.rg-board__rank { font-family: var(--mono); font-size: 13px; opacity: .7; }
+.rg-board__name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rg-board__ft { font-family: var(--mono); font-size: 14px; color: var(--bear-gold); }
+.rg-board__list li.is-top .rg-board__rank { color: var(--bear-gold); opacity: 1; }
+.rg-board__empty, .rg-board__note { font-family: var(--mono); font-size: 13px; opacity: .7; }
+.rg-board__note { margin-top: 10px; }
+.rg-post { margin-top: 4px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media (max-width: 720px) {
   .rg-play { grid-template-columns: minmax(0, 1fr); }

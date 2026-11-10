@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
 import {
-  PER_DAY, SECONDS, TIERS, TIER_ORDER, answerById, berkeleyDay, feetOf, loadRun, loadStreak, match, promptById, promptsFor, saveRun,
+  PER_DAY, SECONDS, STRATA, TIERS, answerById, berkeleyDay, feetOf, loadRun, loadStreak, match, promptById, promptsFor, saveRun,
 } from './deepRootsData'
 import type { Pick, Prompt, Tier } from './deepRootsData'
-import { confetti, gsap, prefersReduced } from './motion'
+import { confetti, gsap, prefersReduced, usePaused, useReduced } from './motion'
+import { BOARD_EVENT, boardOnline, localBoard, postScore, postedToday, todayBoard } from './deepRootsBoard'
+import type { BoardRow } from './deepRootsBoard'
 import { FUSE_MAX, FUSE_MIN, PartyRoom, cleanCode, newCode, partyConfigured } from './deepRootsParty'
 import type { PartyView } from './deepRootsParty'
 
@@ -27,7 +29,10 @@ export default function DeepRoots() {
   }
   const startPractice = () => setMode({ kind: 'play', day: null, prompts: promptsFor(Math.floor(Math.random() * 1e9)) })
   const finish = (day: number | null, picks: Pick[]) => {
-    if (day !== null) saveRun({ day, picks })
+    if (day !== null) {
+      saveRun({ day, picks })
+      window.dispatchEvent(new Event(BOARD_EVENT))
+    }
     setMode({ kind: 'done', day, picks })
   }
 
@@ -130,7 +135,7 @@ function Round({ prompts, practice, onDone }: { prompts: Prompt[]; practice: boo
           <button type="submit" className="rg-btn" disabled={!!flash || !guess.trim()}>Plant it</button>
         </form>
         <div className="rg-foot">
-          <p className={`rg-flash ${flash?.tier ? `is-${flash.tier}` : flash ? 'is-miss' : ''}`} role="status" aria-live="polite">
+          <p className={`rg-flash ${flash?.tier ? `is-hit is-${flash.tier}` : flash ? 'is-miss' : ''}`} style={flash?.tier ? tierVar(flash.tier) : undefined} role="status" aria-live="polite">
             {flash ? flash.text : `${Math.ceil(left)}s left`}
           </p>
           <button type="button" className="link-btn" onClick={() => lock('')} disabled={!!flash}>Skip</button>
@@ -141,7 +146,8 @@ function Round({ prompts, practice, onDone }: { prompts: Prompt[]; practice: boo
 }
 
 /* ---------- results ---------- */
-const SQUARE: Record<Tier, string> = { topsoil: '🟫', loam: '🟧', clay: '🟥', bedrock: '🟦', taproot: '🟨' }
+const tierVar = (t: Tier) => ({ '--tier': TIERS[t].color }) as CSSProperties
+const DOT: Record<Tier, string> = { common: '⚪', uncommon: '🟢', rare: '🔵', epic: '🟣', legendary: '🟠', exotic: '💎', mythic: '🟡', prismatic: '🌈' }
 
 function Results({ picks, day, streak, onPractice, onHome }: {
   picks: Pick[]; day: number | null; streak: { current: number; best: number } | null; onPractice: () => void; onHome: () => void
@@ -150,15 +156,15 @@ function Results({ picks, day, streak, onPractice, onHome }: {
   const head = useRef<HTMLParagraphElement>(null)
   const [copied, setCopied] = useState(false)
   useEffect(() => {
-    if (head.current && ft >= 250) confetti(head.current)
+    if (head.current && ft >= 300) confetti(head.current)
   }, [ft])
 
-  const squares = picks.map((k) => {
-    const a = answerById(promptById(k.promptId), k.answerId)
-    return a ? SQUARE[a.tier] : '⬛'
-  }).join('')
   const share = async () => {
-    const text = `Deep Roots${day !== null ? ` #${day - DAY_ZERO}` : ' (practice)'}: ${ft} ft\n${squares}`
+    const dots = picks.map((k) => {
+      const a = answerById(promptById(k.promptId), k.answerId)
+      return a ? DOT[a.tier] : '⚫'
+    }).join('')
+    const text = `Deep Roots${day !== null ? ` #${day - DAY_ZERO}` : ' (practice)'}: ${ft} ft\n${dots}`
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -173,23 +179,26 @@ function Results({ picks, day, streak, onPractice, onHome }: {
       <div className="rg-q">
         <p className="rg-meta">{day === null ? 'practice round' : `day #${day - DAY_ZERO}`}{streak ? ` · streak ${streak.current} · best ${streak.best}` : ''}</p>
         <p className="rg-total" ref={head}><b>{ft}</b> ft of roots</p>
-        <p className="rg-squares" aria-hidden="true">{squares}</p>
         <ol className="rg-list">
           {picks.map((k) => {
             const p = promptById(k.promptId)
             const a = answerById(p, k.answerId)
-            const rare = p.answers.filter((x) => x.tier === 'taproot' && x.id !== a?.id)[0] ?? p.answers.filter((x) => x.tier === 'bedrock')[0]
+            const prism = p.answers.find((x) => x.tier === 'prismatic')
             return (
-              <li key={k.promptId}>
-                <span className="rg-list__p">{p.text}</span>
-                <span className={`rg-list__a ${a ? `is-${a.tier}` : 'is-miss'}`}>
-                  {a ? `${a.name} · ${TIERS[a.tier].label} +${TIERS[a.tier].ft}` : k.guess ? `“${k.guess}” · no root` : 'skipped'}
+              <li key={k.promptId} className={a ? `is-hit is-${a.tier}` : 'is-miss'} style={a ? tierVar(a.tier) : undefined}>
+                <span className="rg-dot" aria-hidden="true" />
+                <span className="rg-list__body">
+                  <span className="rg-list__p">{p.text}</span>
+                  <span className="rg-list__a">
+                    {a ? <>{a.name} <span className="rg-list__tier">{TIERS[a.tier].label} +{TIERS[a.tier].ft}</span></> : k.guess ? `“${k.guess}” · no root` : 'skipped'}
+                  </span>
+                  {prism && prism.id !== a?.id && <span className="rg-list__rare">prismatic answer: {prism.name}</span>}
                 </span>
-                {rare && <span className="rg-list__rare">deep pick: {rare.name}</span>}
               </li>
             )
           })}
         </ol>
+        {day !== null && <PostScore day={day} ft={ft} />}
         <div className="rg-actions">
           <button type="button" className="rg-btn" onClick={share}>{copied ? 'Copied' : 'Share your roots'}</button>
           <button type="button" className="rg-btn rg-btn--ghost" onClick={onPractice}>Practice round</button>
@@ -201,26 +210,39 @@ function Results({ picks, day, streak, onPractice, onHome }: {
   )
 }
 
-/* ---------- the cross-section: soil strata, a sprout, one root per answer ---------- */
+/* ---------- the cross-section: soil strata, a sprout, one root per answer, coloured by rarity ---------- */
 const W = 320, GROUND = 46, H = 330
-const depthOf = (ft: number) => 26 + ft * 2.6
+const depthOf = (ft: number) => 22 + ft * 2
 
 export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: number }) {
+  const svg = useRef<SVGSVGElement>(null)
+  const reduced = useReduced()
+  const paused = usePaused()
+  useEffect(() => {
+    if (!svg.current) return
+    if (reduced || paused) svg.current.pauseAnimations()
+    else svg.current.unpauseAnimations()
+  }, [reduced, paused])
   return (
-    <svg className="rg-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${picks.length} of ${total} roots grown, ${feetOf(picks)} feet deep`}>
+    <svg ref={svg} className="rg-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${picks.length} of ${total} roots grown, ${feetOf(picks)} feet deep`}>
       <defs>
         <linearGradient id="rg-soil" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#0b3f6e" />
           <stop offset="1" stopColor="#001a33" />
         </linearGradient>
+        {/* the prismatic root: a rainbow that keeps flowing down the root */}
+        <linearGradient id="rg-prism" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="120" y2="120" spreadMethod="repeat">
+          {PRISM.map((c, i) => <stop key={i} offset={i / (PRISM.length - 1)} stopColor={c} />)}
+          <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="120 120" dur="2.4s" repeatCount="indefinite" />
+        </linearGradient>
       </defs>
       <rect x="0" y={GROUND} width={W} height={H - GROUND} fill="url(#rg-soil)" />
-      {TIER_ORDER.map((t) => {
-        const y = GROUND + depthOf(TIERS[t].ft)
+      {STRATA.map((t) => {
+        const y = GROUND + depthOf(t.ft)
         return (
-          <g key={t} className="rg-stratum">
+          <g key={t.label} className="rg-stratum">
             <line x1="0" x2={W} y1={y} y2={y} />
-            <text x={W - 6} y={y - 4} textAnchor="end">{TIERS[t].label.toLowerCase()}</text>
+            <text x={W - 6} y={y - 4} textAnchor="end">{t.label}</text>
           </g>
         )
       })}
@@ -238,15 +260,80 @@ export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: n
         const y1 = GROUND + 2
         const y2 = GROUND + len
         const d = `M160 ${y1} C 160 ${y1 + len * 0.35}, ${endX} ${y1 + len * 0.4}, ${endX} ${y2}`
-        const fork = a && (a.tier === 'bedrock' || a.tier === 'taproot')
+        const rank = a ? TIER_RANK[a.tier] : -1
+        const stroke = a ? (a.tier === 'prismatic' ? 'url(#rg-prism)' : TIERS[a.tier].color) : undefined
         return (
-          <g key={i} className={`rg-root ${a ? `is-${a.tier}` : 'is-miss'}`}>
+          <g key={i} className={`rg-root ${a ? `is-${a.tier}` : 'is-miss'}`} style={{ stroke, strokeWidth: a ? 2.5 + rank * 0.55 : undefined }}>
             <path d={d} pathLength={1} />
-            {fork && <path d={`M${endX} ${y2 - len * 0.35} q ${i % 2 ? 16 : -16} 10 ${i % 2 ? 22 : -22} 30`} pathLength={1} className="rg-fork" />}
+            {rank >= 4 && <path d={`M${endX} ${y2 - len * 0.35} q ${i % 2 ? 16 : -16} 10 ${i % 2 ? 22 : -22} 30`} pathLength={1} className="rg-fork" />}
+            {rank >= 6 && <path d={`M${endX} ${y2 - len * 0.6} q ${i % 2 ? -14 : 14} 12 ${i % 2 ? -18 : 18} 34`} pathLength={1} className="rg-fork" />}
           </g>
         )
       })}
     </svg>
+  )
+}
+const PRISM = ['#ff4d6d', '#ff9f1c', '#ffe14d', '#4cc76a', '#22d3ee', '#3d8bff', '#a66bff', '#ff4d6d']
+const TIER_RANK = Object.fromEntries((['common', 'uncommon', 'rare', 'epic', 'legendary', 'exotic', 'mythic', 'prismatic'] as Tier[]).map((t, i) => [t, i])) as Record<Tier, number>
+
+/* ---------- leaderboard ---------- */
+function PostScore({ day, ft }: { day: number; ft: number }) {
+  const [name, setName] = useState(savedName)
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>(() => (postedToday(day) ? 'done' : 'idle'))
+  if (!boardOnline) return null
+  if (state === 'done') return <p className="rg-meta">you’re on today’s leaderboard.</p>
+  const send = async (e: FormEvent) => {
+    e.preventDefault()
+    const n = name.trim().slice(0, 16)
+    if (!n) return
+    setState('sending')
+    try {
+      localStorage.setItem(NAME_KEY, n)
+    } catch { /* fine */ }
+    setState((await postScore(day, n, ft)) ? 'done' : 'error')
+  }
+  return (
+    <form className="rg-form rg-post" onSubmit={send}>
+      <label className="sr-only" htmlFor="rg-post-name">Name for the leaderboard</label>
+      <input id="rg-post-name" className="rg-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={16} placeholder="name for the leaderboard" />
+      <button type="submit" className="rg-btn" disabled={state === 'sending' || !name.trim()}>{state === 'error' ? 'Try again' : 'Post my roots'}</button>
+    </form>
+  )
+}
+
+export function RootsBoard() {
+  const day = useMemo(() => berkeleyDay(), [])
+  const [rows, setRows] = useState<BoardRow[] | null>(null)
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const f = () => setTick((n) => n + 1)
+    window.addEventListener(BOARD_EVENT, f)
+    return () => window.removeEventListener(BOARD_EVENT, f)
+  }, [])
+  useEffect(() => {
+    let live = true
+    if (boardOnline) void todayBoard(day).then((r) => live && setRows(r))
+    else setRows(localBoard())
+    return () => void (live = false)
+  }, [day, tick])
+  return (
+    <section className="rg-board" aria-labelledby="rg-board-h">
+      <h4 id="rg-board-h" className="rg-board__h">{boardOnline ? 'Today’s deepest roots' : 'Your deepest roots'}</h4>
+      {rows === null ? <p className="rg-board__empty">loading…</p>
+        : rows.length === 0 ? <p className="rg-board__empty">{boardOnline ? 'nobody yet. be the first.' : 'play today’s seven to get on the board.'}</p>
+        : (
+          <ol className="rg-board__list">
+            {rows.map((r, i) => (
+              <li key={i} className={i === 0 ? 'is-top' : ''}>
+                <span className="rg-board__rank">{i + 1}</span>
+                <span className="rg-board__name">{r.name}</span>
+                <span className="rg-board__ft">{r.ft} ft</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      {!boardOnline && <p className="rg-board__note">saved in this browser. the campus-wide board opens with the party server.</p>}
+    </section>
   )
 }
 
@@ -410,7 +497,7 @@ function PartyTable({ room, view, onLeave }: { room: PartyRoom; view: PartyView;
             />
             <button type="submit" className="rg-btn" disabled={!mine || !guess.trim()}>Pass it</button>
           </form>
-          <p className={`rg-flash ${s.beat?.kind === 'ok' ? 'is-loam' : s.beat ? 'is-miss' : ''}`} role="status" aria-live="polite">{beat}</p>
+          <p className={`rg-flash ${s.beat?.kind === 'ok' ? 'is-ok' : s.beat ? 'is-miss' : ''}`} role="status" aria-live="polite">{beat}</p>
           {s.used.length > 0 && (
             <p className="rg-used">said: {s.used.map((id) => prompt.answers.find((a) => a.id === id)?.name).filter(Boolean).join(' · ')}</p>
           )}

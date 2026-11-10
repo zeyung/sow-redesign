@@ -50,10 +50,29 @@ The same as the evolved site. `npm run deploy` builds with `VITE_WAITLIST_MODE=d
 
 ## Deep Roots
 
-A daily game in the Games section. Seven Berkeley prompts a day, the same for everyone, with 25 seconds each. Every accepted answer has a hand-set rarity tier (Topsoil, Loam, Clay, Bedrock, Taproot), and rarer answers grow your roots deeper. Runs, streaks and your best score stay in the visitor's browser. Days roll over at midnight Pacific.
+A daily game in the Games section. Seven Berkeley prompts a day, the same for everyone, with 25 seconds each. Every accepted answer has a hand-set rarity: Common (gray), Uncommon (green), Rare (blue), Epic (purple), Legendary (orange), Exotic (cyan) and Mythic (gold). Each prompt also has exactly one Prismatic answer, shown with a cycling rainbow. Rarer answers grow your roots deeper, and each root is drawn in its answer's rarity color. The results screen puts a rarity circle next to each answer. Runs, streaks and your best score stay in the visitor's browser. Days roll over at midnight Pacific.
 
 - Prompts, answers, aliases and tiers live in `src/deepRootsData.ts`. Add an answer as `['Name', tier, ...aliases]`. The matcher ignores case, punctuation, "the" and filler words like "hall" or "avenue", and allows a typo or two on longer names. Answers with numbers (Unit 2, CS 61B) must match exactly.
 - **Practice round** plays a random set without touching the streak.
+
+### Leaderboard
+
+A leaderboard sits under the Deep Roots title. Without Supabase it lists this browser's five deepest days. With Supabase configured (see below) it becomes a campus-wide board of today's deepest runs, and players can post their score from the results screen. Create the table once in the Supabase SQL editor:
+
+```sql
+create table deeproots_scores (
+  id bigint generated always as identity primary key,
+  day int not null,
+  name text not null check (char_length(name) between 1 and 16),
+  ft int not null check (ft between 0 and 840),
+  created_at timestamptz not null default now()
+);
+alter table deeproots_scores enable row level security;
+create policy "read scores" on deeproots_scores for select using (true);
+create policy "post scores" on deeproots_scores for insert with check (true);
+```
+
+Scores are posted from the browser with the public key, so a determined visitor could post a fake score. The check constraints cap the damage. Real verification would need a server-side check.
 
 ### Pass the Acorn (party mode)
 

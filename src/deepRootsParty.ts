@@ -15,7 +15,7 @@ const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 export const partyConfigured = Boolean(URL && KEY)
 let client: SupabaseClient | null = null
 /* Loaded on first use so single-player visitors never download the Supabase client. */
-const supabase = async () => (client ??= (await import('@supabase/supabase-js')).createClient(URL!, KEY!))
+export const supabase = async () => (client ??= (await import('@supabase/supabase-js')).createClient(URL!, KEY!))
 
 export const FUSE_MIN = 10
 export const FUSE_MAX = 30
