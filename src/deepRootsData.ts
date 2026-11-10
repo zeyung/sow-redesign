@@ -259,7 +259,8 @@ export const promptsFor = (seed: number) => shuffled(PROMPTS, seed * 7919 + 17).
 
 /* ---------- saved runs and streaks (this browser only) ---------- */
 export type Pick = { promptId: string; guess: string; answerId: string | null }
-export type Run = { day: number; picks: Pick[] }
+/* picks is the latest run; best is the deepest run of the day (bonus tries included). */
+export type Run = { day: number; picks: Pick[]; best?: number }
 type Streak = { last: number; current: number; best: number }
 
 const KEY_RUN = (day: number) => `deeproots:run:${day}`
@@ -281,7 +282,9 @@ const write = (k: string, v: unknown) => {
 }
 export const loadRun = (day: number) => read<Run>(KEY_RUN(day))
 export function saveRun(run: Run) {
-  write(KEY_RUN(run.day), run)
+  const prev = read<Run>(KEY_RUN(run.day))
+  const prevBest = prev ? prev.best ?? feetOf(prev.picks) : 0
+  write(KEY_RUN(run.day), { ...run, best: Math.max(prevBest, feetOf(run.picks)) })
   const s = read<Streak>(KEY_STREAK) ?? { last: -1, current: 0, best: 0 }
   if (s.last === run.day) return s
   const current = s.last === run.day - 1 ? s.current + 1 : 1
@@ -294,6 +297,35 @@ export function loadStreak(day: number) {
   if (!s || s.last < day - 1) return { current: 0, best: s?.best ?? 0 }
   return { current: s.current, best: s.best }
 }
+
+export const bestOf = (run: Run) => run.best ?? feetOf(run.picks)
+
+/* ---------- bonus tries: one for being on the waitlist, one for sending the game to a friend ---------- */
+export type BonusKind = 'waitlist' | 'share'
+export type Bonus = { shared: boolean; used: BonusKind[] }
+export const JOIN_EVENT = 'sow:joined'
+const KEY_BONUS = (day: number) => `deeproots:bonus:${day}`
+export const loadBonus = (day: number): Bonus => read<Bonus>(KEY_BONUS(day)) ?? { shared: false, used: [] }
+export function markShared(day: number) {
+  write(KEY_BONUS(day), { ...loadBonus(day), shared: true })
+}
+export function spendBonus(day: number, kind: BonusKind) {
+  const b = loadBonus(day)
+  if (!b.used.includes(kind)) write(KEY_BONUS(day), { ...b, used: [...b.used, kind] })
+}
+/* Anyone who has joined the Sow waitlist in this browser (now or before) earns the waitlist try. */
+export function onWaitlist() {
+  try {
+    if (localStorage.getItem('sow:joined') === '1') return true
+    return (JSON.parse(localStorage.getItem('sow-demo-waitlist') || '[]') as unknown[]).length > 0
+  } catch {
+    return false
+  }
+}
+/* Done for the day once the daily run and both bonus tries are played. */
+export const dayOver = (day: number) => !!loadRun(day) && loadBonus(day).used.length >= 2
+/* Bonus tries get their own seven prompts, so a retry isn't a replay of answers you just saw. */
+export const bonusPrompts = (day: number, kind: BonusKind) => promptsFor(day * 31 + (kind === 'waitlist' ? 100003 : 200003))
 
 export const promptById = (id: string) => PROMPTS.find((p) => p.id === id)!
 export const answerById = (p: Prompt, id: string | null) => (id ? p.answers.find((a) => a.id === id) ?? null : null)

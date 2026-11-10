@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import {
-  PER_DAY, SECONDS, STRATA, TIERS, answerById, berkeleyDay, feetOf, loadRun, loadStreak, match, promptById, promptsFor, saveRun,
+  JOIN_EVENT, PER_DAY, SECONDS, STRATA, TIERS, answerById, berkeleyDay, bestOf, bonusPrompts, dayOver, feetOf, loadBonus, loadRun, loadStreak,
+  markShared, match, onWaitlist, promptById, promptsFor, saveRun, spendBonus,
 } from './deepRootsData'
-import type { Pick, Prompt, Tier } from './deepRootsData'
+import type { BonusKind, Pick, Prompt, Tier } from './deepRootsData'
 import { confetti, gsap, prefersReduced, usePaused, useReduced } from './motion'
 import { BOARD_EVENT, boardOnline, placeholderBoard, postScore, postedToday, todayBoard } from './deepRootsBoard'
 import type { BoardRow } from './deepRootsBoard'
@@ -32,6 +33,11 @@ export default function DeepRoots() {
   const startPractice = () => {
     unlockSound()
     setMode({ kind: 'play', day: null, prompts: promptsFor(Math.floor(Math.random() * 1e9)) })
+  }
+  const retry = (kind: BonusKind) => {
+    unlockSound()
+    spendBonus(today, kind) /* spent when it starts, so leaving mid-run doesn't hand it back */
+    setMode({ kind: 'play', day: today, prompts: bonusPrompts(today, kind) })
   }
   const finish = (day: number | null, picks: Pick[]) => {
     if (day !== null) {
@@ -66,6 +72,7 @@ export default function DeepRoots() {
           day={mode.day}
           streak={mode.day === null ? null : loadStreak(today)}
           onPractice={startPractice}
+          onRetry={retry}
           onHome={() => setMode({ kind: 'home' })}
         />
       )}
@@ -92,6 +99,8 @@ export function DeepRootsCard() {
     root.style.overflow = 'hidden'
     root.classList.add('rg-full')
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setFull(false)
+    const exit = () => setFull(false)
+    window.addEventListener('deeproots:exitfull', exit)
     const sync = () => !document.fullscreenElement && setFull(false)
     window.addEventListener('keydown', esc)
     document.addEventListener('fullscreenchange', sync)
@@ -99,6 +108,7 @@ export function DeepRootsCard() {
       root.style.overflow = prev
       root.classList.remove('rg-full')
       window.removeEventListener('keydown', esc)
+      window.removeEventListener('deeproots:exitfull', exit)
       document.removeEventListener('fullscreenchange', sync)
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
     }
@@ -215,6 +225,80 @@ function Round({ prompts, practice, onDone }: { prompts: Prompt[]; practice: boo
   )
 }
 
+/* ---------- bonus tries ---------- */
+function Retries({ day, best, onRetry }: { day: number; best: number; onRetry: (k: BonusKind) => void }) {
+  const [bonus, setBonus] = useState(() => loadBonus(day))
+  const [joined, setJoined] = useState(onWaitlist)
+  const [note, setNote] = useState('')
+  const [link, setLink] = useState(false)
+  useEffect(() => {
+    const f = () => setJoined(onWaitlist())
+    window.addEventListener(JOIN_EVENT, f)
+    window.addEventListener('storage', f)
+    return () => {
+      window.removeEventListener(JOIN_EVENT, f)
+      window.removeEventListener('storage', f)
+    }
+  }, [])
+  const used = (k: BonusKind) => bonus.used.includes(k)
+
+  if (used('waitlist') && used('share')) {
+    return (
+      <div className="rg-retry is-over">
+        <p className="rg-retry__h">That’s all your tries for today 🌱</p>
+        <p className="rg-meta">your best: {best} ft. new prompts at midnight, Berkeley time.</p>
+      </div>
+    )
+  }
+
+  const goJoin = () => {
+    window.dispatchEvent(new Event('deeproots:exitfull'))
+    window.setTimeout(() => document.getElementById('join')?.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth' }), 120)
+  }
+  const url = `${location.origin}${location.pathname}?ref=deeproots#games`
+  const earn = () => {
+    markShared(day)
+    setBonus(loadBonus(day))
+  }
+  const share = async () => {
+    const text = `I grew ${best} ft of roots in Deep Roots, a daily Berkeley word game. How deep can you go?`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Deep Roots', text, url })
+        earn()
+      } catch (e) {
+        if ((e as Error)?.name !== 'AbortError') setLink(true) /* share sheet failed: show the link instead */
+      }
+      return
+    }
+    /* desktop: show the link, copy it in the background, and unlock the try */
+    setLink(true)
+    earn()
+    void navigator.clipboard?.writeText(`${text} ${url}`).then(() => setNote('link copied. send it to a friend!'), () => {})
+  }
+
+  return (
+    <div className="rg-retry">
+      <p className="rg-retry__h">Want another try?</p>
+      <p className="rg-meta">earn up to 2 more today. your best run counts.</p>
+      <div className="rg-retry__row">
+        <span className="rg-retry__what">📝 Be on the Sow waitlist</span>
+        {used('waitlist') ? <span className="rg-retry__done">✓ used</span>
+          : joined ? <button type="button" className="rg-btn" onClick={() => onRetry('waitlist')}>Play your waitlist try</button>
+          : <button type="button" className="rg-btn rg-btn--ghost" onClick={goJoin}>Join the waitlist</button>}
+      </div>
+      <div className="rg-retry__row">
+        <span className="rg-retry__what">💌 Send the game to a friend</span>
+        {used('share') ? <span className="rg-retry__done">✓ used</span>
+          : bonus.shared ? <button type="button" className="rg-btn" onClick={() => onRetry('share')}>Play your friend try</button>
+          : <button type="button" className="rg-btn rg-btn--ghost" onClick={share}>Send to a friend</button>}
+      </div>
+      {link && <input className="rg-input rg-retry__link" readOnly value={url} aria-label="Link to send a friend" onFocus={(e) => e.currentTarget.select()} />}
+      {note && <p className="rg-meta" role="status">{note}</p>}
+    </div>
+  )
+}
+
 /* ---------- sound on/off ---------- */
 function SoundToggle() {
   const [muted, setM] = useState(isMuted)
@@ -237,10 +321,15 @@ function SoundToggle() {
 const tierVar = (t: Tier) => ({ '--tier': TIERS[t].color }) as CSSProperties
 const DOT: Record<Tier, string> = { common: '⚪', uncommon: '🟢', rare: '🔵', epic: '🟣', legendary: '🟠', exotic: '💎', mythic: '🟡', prismatic: '🌈' }
 
-function Results({ picks, day, streak, onPractice, onHome }: {
-  picks: Pick[]; day: number | null; streak: { current: number; best: number } | null; onPractice: () => void; onHome: () => void
+function Results({ picks, day, streak, onPractice, onRetry, onHome }: {
+  picks: Pick[]; day: number | null; streak: { current: number; best: number } | null; onPractice: () => void; onRetry: (k: BonusKind) => void; onHome: () => void
 }) {
   const ft = feetOf(picks)
+  const today = useMemo(() => berkeleyDay(), [])
+  const run = day !== null ? loadRun(day) : null
+  const best = run ? bestOf(run) : ft
+  /* prismatic answers stay hidden until every try for today is played */
+  const reveal = dayOver(today)
   const head = useRef<HTMLParagraphElement>(null)
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -267,6 +356,7 @@ function Results({ picks, day, streak, onPractice, onHome }: {
       <div className="rg-q">
         <p className="rg-meta">{day === null ? 'practice round' : `day #${day - DAY_ZERO}`}{streak ? ` · streak ${streak.current} · best ${streak.best}` : ''}</p>
         <p className="rg-total" ref={head}><b>{ft}</b> ft of roots</p>
+        {day !== null && best > ft && <p className="rg-meta">today’s best: {best} ft</p>}
         <ol className="rg-list">
           {picks.map((k) => {
             const p = promptById(k.promptId)
@@ -280,19 +370,22 @@ function Results({ picks, day, streak, onPractice, onHome }: {
                   <span className="rg-list__a">
                     {a ? <>{a.name} <span className="rg-list__tier">{TIERS[a.tier].label} +{TIERS[a.tier].ft}</span></> : k.guess ? `“${k.guess}” · no root` : 'skipped'}
                   </span>
-                  {prism && prism.id !== a?.id && <span className="rg-list__rare">prismatic answer: {prism.name}</span>}
+                  {prism && prism.id !== a?.id && (reveal
+                    ? <span className="rg-list__rare">prismatic answer: {prism.name}</span>
+                    : <span className="rg-list__rare">prismatic answer: revealed when you’re done for the day</span>)}
                 </span>
               </li>
             )
           })}
         </ol>
-        {day !== null && <PostScore day={day} ft={ft} />}
+        {day !== null && <Retries day={day} best={best} onRetry={onRetry} />}
+        {day !== null && <PostScore day={day} ft={best} />}
         <div className="rg-actions">
           <button type="button" className="rg-btn" onClick={share}>{copied ? 'Copied' : 'Share your roots'}</button>
           <button type="button" className="rg-btn rg-btn--ghost" onClick={onPractice}>Practice round</button>
           <button type="button" className="link-btn" onClick={onHome}>Back</button>
         </div>
-        {day !== null && <p className="rg-meta">new prompts at midnight, Berkeley time.</p>}
+        {day !== null && !dayOver(day) && <p className="rg-meta">new prompts at midnight, Berkeley time.</p>}
       </div>
     </div>
   )
@@ -457,7 +550,7 @@ export function RootsBoard() {
     if (boardOnline) void todayBoard(day).then((r) => live && setRows(r))
     else {
       const run = loadRun(day)
-      setRows(placeholderBoard(day, run ? feetOf(run.picks) : null))
+      setRows(placeholderBoard(day, run ? bestOf(run) : null))
     }
     return () => void (live = false)
   }, [day, tick])

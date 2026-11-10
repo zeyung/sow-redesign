@@ -404,6 +404,14 @@ html.rg-full .nav { visibility: hidden; }
 .rg-board__empty, .rg-board__note { font-family: var(--mono); font-size: 13px !important; opacity: .65 !important; }
 .rg-board__note { margin-top: 10px; }
 .rg-post { margin-top: 4px; }
+.rg-retry { display: grid; gap: 10px; padding: 16px 18px; border-radius: 18px; border: 2px dashed rgba(253, 181, 21, .55); background: rgba(253, 181, 21, .06); }
+.rg-retry.is-over { border-style: solid; border-color: var(--bear-line); background: none; }
+.rg-retry__h { font-weight: 800; font-size: 19px; }
+.rg-retry__row { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; }
+.rg-retry__what { font-weight: 600; font-size: 15px; }
+.rg-retry__row .rg-btn { font-size: 14px; padding: 8px 14px; }
+.rg-retry__link { font-family: var(--mono); font-size: 13px; padding: 8px 10px; }
+.rg-retry__done { font-family: var(--mono); font-size: 13px; color: #4cc76a; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media (max-width: 720px) {
   .rg-play { grid-template-columns: minmax(0, 1fr); }

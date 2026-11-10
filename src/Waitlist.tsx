@@ -49,6 +49,10 @@ export default function Waitlist({ onJoined }: { onJoined?: () => void } = {}) {
       const r = await joinWaitlist({ firstName: first.trim(), lastName: last.trim(), email: email.trim().toLowerCase(), year: year as Year })
       setId(r.id)
       setStep('question')
+      try {
+        localStorage.setItem('sow:joined', '1')
+      } catch { /* private mode */ }
+      window.dispatchEvent(new Event('sow:joined')) /* Deep Roots gives waitlist members a bonus try */
       onJoined?.()
     } catch (err) {
       console.warn('[waitlist]', err)
