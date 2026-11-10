@@ -5,8 +5,9 @@ import {
 } from './deepRootsData'
 import type { Pick, Prompt, Tier } from './deepRootsData'
 import { confetti, gsap, prefersReduced, usePaused, useReduced } from './motion'
-import { BOARD_EVENT, boardOnline, localBoard, postScore, postedToday, todayBoard } from './deepRootsBoard'
+import { BOARD_EVENT, boardOnline, placeholderBoard, postScore, postedToday, todayBoard } from './deepRootsBoard'
 import type { BoardRow } from './deepRootsBoard'
+import { isMuted, playTier, setMuted, unlockSound } from './deepRootsSound'
 import { FUSE_MAX, FUSE_MIN, PartyRoom, cleanCode, newCode, partyConfigured } from './deepRootsParty'
 import type { PartyView } from './deepRootsParty'
 
@@ -23,11 +24,15 @@ export default function DeepRoots() {
   const streak = loadStreak(today)
 
   const startDaily = () => {
+    unlockSound()
     const saved = loadRun(today)
     if (saved) setMode({ kind: 'done', day: today, picks: saved.picks })
     else setMode({ kind: 'play', day: today, prompts: promptsFor(today) })
   }
-  const startPractice = () => setMode({ kind: 'play', day: null, prompts: promptsFor(Math.floor(Math.random() * 1e9)) })
+  const startPractice = () => {
+    unlockSound()
+    setMode({ kind: 'play', day: null, prompts: promptsFor(Math.floor(Math.random() * 1e9)) })
+  }
   const finish = (day: number | null, picks: Pick[]) => {
     if (day !== null) {
       saveRun({ day, picks })
@@ -49,6 +54,7 @@ export default function DeepRoots() {
             <button type="button" className="rg-btn rg-btn--ghost" onClick={() => setMode({ kind: 'party' })}>Pass the acorn 🌰</button>
           </div>
           <p className="rg-meta">day #{today - DAY_ZERO} · streak {streak.current} · best {streak.best}</p>
+          <SoundToggle />
           </div>
         </div>
       )}
@@ -64,6 +70,68 @@ export default function DeepRoots() {
         />
       )}
     </div>
+  )
+}
+
+/* The whole Deep Roots card: title, leaderboard, game, drifting background, and a full-screen mode. */
+const MOTES = Array.from({ length: 22 }, (_, i) => ({
+  left: (i * 37 + 11) % 100,
+  size: 3 + ((i * 7) % 5),
+  dur: 9 + ((i * 13) % 11),
+  delay: -((i * 5) % 17),
+  leaf: i % 4 === 0,
+}))
+
+export function DeepRootsCard() {
+  const card = useRef<HTMLElement>(null)
+  const [full, setFull] = useState(false)
+  useEffect(() => {
+    if (!full) return
+    const root = document.documentElement
+    const prev = root.style.overflow
+    root.style.overflow = 'hidden'
+    root.classList.add('rg-full')
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setFull(false)
+    const sync = () => !document.fullscreenElement && setFull(false)
+    window.addEventListener('keydown', esc)
+    document.addEventListener('fullscreenchange', sync)
+    return () => {
+      root.style.overflow = prev
+      root.classList.remove('rg-full')
+      window.removeEventListener('keydown', esc)
+      document.removeEventListener('fullscreenchange', sync)
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    }
+  }, [full])
+  const toggle = () => {
+    if (full) return setFull(false)
+    setFull(true)
+    /* real full screen where the browser allows it; the fixed overlay covers the rest (e.g. iPhone) */
+    card.current?.requestFullscreen?.().catch(() => {})
+  }
+  return (
+    <article ref={card} className={`console console--roots ${full ? 'is-full' : ''}`} aria-label="Deep Roots">
+      <div className="rg-fx" aria-hidden="true">
+        <span className="rg-blob rg-blob--a" /><span className="rg-blob rg-blob--b" /><span className="rg-blob rg-blob--c" />
+        {MOTES.map((m, i) => (
+          <span key={i} className={`rg-mote ${m.leaf ? 'is-leaf' : ''} ${i >= 12 ? 'is-extra' : ''}`}
+            style={{ left: `${m.left}%`, width: m.size * (m.leaf ? 2.4 : 1), height: m.size, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }} />
+        ))}
+      </div>
+      <div className="console__head">
+        <div className="rg-tags">
+          <span className="tag tag--new">New</span>
+          <span className="tag tag--gold">New every day</span>
+        </div>
+        <h3>Deep Roots</h3>
+        <p>Seven quick prompts about campus life. The rarer your answer, the deeper your roots grow.</p>
+        <button type="button" className="rg-btn rg-btn--ghost rg-full-btn" onClick={toggle} aria-pressed={full}>
+          {full ? '✕ Exit full screen' : '⛶ Full screen'}
+        </button>
+        <RootsBoard />
+      </div>
+      <div className="console__screen"><DeepRoots /></div>
+    </article>
   )
 }
 
@@ -91,6 +159,7 @@ function Round({ prompts, practice, onDone }: { prompts: Prompt[]; practice: boo
     const pick: Pick = { promptId: prompt.id, guess: text.trim(), answerId: a?.id ?? null }
     const next = [...picks, pick]
     setPicks(next)
+    playTier(a?.tier ?? null)
     setFlash(a ? { text: `${a.name} · ${TIERS[a.tier].label} · +${TIERS[a.tier].ft} ft`, tier: a.tier } : { text: text.trim() ? `“${text.trim()}” isn’t on our list` : 'time’s up', tier: null })
     if (!prefersReduced() && !a && input.current) gsap.fromTo(input.current, { x: -8 }, { x: 0, duration: 0.4, ease: 'elastic.out(1, 0.3)' })
     window.setTimeout(() => {
@@ -121,7 +190,7 @@ function Round({ prompts, practice, onDone }: { prompts: Prompt[]; practice: boo
 
   return (
     <div className="rg-play">
-      <RootsView picks={picks} />
+      <RootsView picks={picks} sow />
       <div className="rg-q">
         <p className="rg-meta">{practice ? 'practice · ' : ''}prompt {i + 1} of {prompts.length}</p>
         <h4 className="rg-prompt">{prompt.text}</h4>
@@ -138,10 +207,29 @@ function Round({ prompts, practice, onDone }: { prompts: Prompt[]; practice: boo
           <p className={`rg-flash ${flash?.tier ? `is-hit is-${flash.tier}` : flash ? 'is-miss' : ''}`} style={flash?.tier ? tierVar(flash.tier) : undefined} role="status" aria-live="polite">
             {flash ? flash.text : `${Math.ceil(left)}s left`}
           </p>
+          <SoundToggle />
           <button type="button" className="link-btn" onClick={() => lock('')} disabled={!!flash}>Skip</button>
         </div>
       </div>
     </div>
+  )
+}
+
+/* ---------- sound on/off ---------- */
+function SoundToggle() {
+  const [muted, setM] = useState(isMuted)
+  const flip = () => {
+    setMuted(!muted)
+    setM(!muted)
+    if (muted) {
+      unlockSound()
+      playTier('rare')
+    }
+  }
+  return (
+    <button type="button" className="link-btn rg-sound" onClick={flip} aria-pressed={!muted}>
+      {muted ? '🔇 sound off' : '🔊 sound on'}
+    </button>
   )
 }
 
@@ -211,10 +299,10 @@ function Results({ picks, day, streak, onPractice, onHome }: {
 }
 
 /* ---------- the cross-section: soil strata, a sprout, one root per answer, coloured by rarity ---------- */
-const W = 320, GROUND = 46, H = 330
+const W = 320, GROUND = 190, H = 490
 const depthOf = (ft: number) => 22 + ft * 2
 
-export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: number }) {
+export function RootsView({ picks, total = PER_DAY, sow = false }: { picks: Pick[]; total?: number; sow?: boolean }) {
   const svg = useRef<SVGSVGElement>(null)
   const reduced = useReduced()
   const paused = usePaused()
@@ -226,6 +314,14 @@ export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: n
   return (
     <svg ref={svg} className="rg-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${picks.length} of ${total} roots grown, ${feetOf(picks)} feet deep`}>
       <defs>
+        <linearGradient id="rg-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#06213f" />
+          <stop offset="1" stopColor="#1d64a8" />
+        </linearGradient>
+        <radialGradient id="rg-glow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#fdb515" stopOpacity=".55" />
+          <stop offset="1" stopColor="#fdb515" stopOpacity="0" />
+        </radialGradient>
         <linearGradient id="rg-soil" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#0b3f6e" />
           <stop offset="1" stopColor="#001a33" />
@@ -236,6 +332,8 @@ export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: n
           <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="120 120" dur="2.4s" repeatCount="indefinite" />
         </linearGradient>
       </defs>
+      <rect x="0" y="0" width={W} height={GROUND} fill="url(#rg-sky)" />
+      {STARS.map(([x, y, r], i) => <circle key={i} className="rg-star" cx={x} cy={y} r={r} style={{ animationDelay: `${i * 0.37}s` }} />)}
       <rect x="0" y={GROUND} width={W} height={H - GROUND} fill="url(#rg-soil)" />
       {STRATA.map((t) => {
         const y = GROUND + depthOf(t.ft)
@@ -247,11 +345,7 @@ export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: n
         )
       })}
       <path className="rg-ground" d={`M0 ${GROUND} C ${W * 0.3} ${GROUND - 4}, ${W * 0.6} ${GROUND + 4}, ${W} ${GROUND - 1}`} />
-      <g className="rg-sprout">
-        <path d={`M160 ${GROUND} C 158 ${GROUND - 14}, 162 ${GROUND - 22}, 160 ${GROUND - 30}`} />
-        <path className="rg-leaf" d={`M160 ${GROUND - 26} C 146 ${GROUND - 40}, 132 ${GROUND - 30}, 134 ${GROUND - 22} C 146 ${GROUND - 18}, 154 ${GROUND - 20}, 160 ${GROUND - 26} Z`} />
-        <path className="rg-leaf" d={`M160 ${GROUND - 30} C 172 ${GROUND - 46}, 190 ${GROUND - 38}, 188 ${GROUND - 30} C 178 ${GROUND - 24}, 168 ${GROUND - 26}, 160 ${GROUND - 30} Z`} />
-      </g>
+      <Plant ft={feetOf(picks)} sow={sow} />
       {picks.map((k, i) => {
         const a = answerById(promptById(k.promptId), k.answerId)
         const n = Math.max(total, picks.length)
@@ -275,6 +369,52 @@ export function RootsView({ picks, total = PER_DAY }: { picks: Pick[]; total?: n
 }
 const PRISM = ['#ff4d6d', '#ff9f1c', '#ffe14d', '#4cc76a', '#22d3ee', '#3d8bff', '#a66bff', '#ff4d6d']
 const TIER_RANK = Object.fromEntries((['common', 'uncommon', 'rare', 'epic', 'legendary', 'exotic', 'mythic', 'prismatic'] as Tier[]).map((t, i) => [t, i])) as Record<Tier, number>
+const STARS: [number, number, number][] = [[24, 22, 1.2], [70, 48, 0.8], [118, 16, 1], [208, 30, 1.3], [256, 60, 0.8], [298, 18, 1], [44, 96, 0.7], [282, 112, 0.9], [150, 62, 0.6]]
+
+/* The plant above the soil. It is drawn once at full size and scaled by your score, so it grows
+   smoothly after each answer; branches, a canopy and golden acorns fade in at higher stages. */
+const STAGE_FT = [0, 40, 120, 230, 380] /* stage 1..5 starts at this many feet */
+function Plant({ ft, sow }: { ft: number; sow: boolean }) {
+  const stage = STAGE_FT.filter((f) => ft >= f).length
+  const g = Math.sqrt(Math.min(1, ft / 520))
+  const scale = 0.3 + 0.62 * g
+  const leaves = [[-34, -1], [-58, 1], [-82, -1], [-104, 1]] as const
+  return (
+    <g transform={`translate(160 ${GROUND})`}>
+      {sow && <circle className="rg-seed" cx="0" cy="-4" r="5" />}
+      {stage >= 5 && <circle className="rg-aura" cx="0" cy="-120" r="90" fill="url(#rg-glow)" />}
+      <g className={`rg-plant is-s${stage} ${sow ? 'is-sowing' : ''}`} style={{ transform: `scale(${scale})` }}>
+        <g className="rg-sway">
+          {/* canopy sits behind the trunk */}
+          <g className="rg-canopy">
+            <circle cx="-34" cy="-132" r="30" />
+            <circle cx="34" cy="-134" r="30" />
+            <circle cx="0" cy="-160" r="36" />
+            <circle cx="-14" cy="-120" r="26" />
+            <circle cx="18" cy="-118" r="24" />
+          </g>
+          <path className="rg-trunk" d="M0 0 C -4 -40, 5 -80, 0 -150" />
+          <g className="rg-branches">
+            <path d="M1 -86 C -10 -96, -24 -104, -40 -124" />
+            <path d="M0 -104 C 12 -112, 26 -118, 40 -134" />
+          </g>
+          {leaves.map(([y, side], i) => (
+            <path key={i} className={`rg-leaf rg-leaf--${i}`} d={`M0 ${y} c ${side * 14} -14 ${side * 28} -8 ${side * 28} 2 c ${side * -10} 6 ${side * -20} 4 ${side * -28} -2 z`} />
+          ))}
+          <g className="rg-crown">
+            <path className="rg-leaf" d="M0 -146 C -14 -160, -28 -150, -26 -142 C -14 -138, -6 -140, 0 -146 Z" />
+            <path className="rg-leaf" d="M0 -150 C 12 -166, 30 -158, 28 -150 C 18 -144, 8 -146, 0 -150 Z" />
+          </g>
+          <g className="rg-acorns">
+            {[[-40, -122], [30, -112], [-6, -178], [44, -146], [-22, -150]].map(([x, y], i) => (
+              <g key={i} transform={`translate(${x} ${y})`}><ellipse cx="0" cy="3" rx="5" ry="6" /><path d="M-6 0 q 6 -6 12 0 z" /></g>
+            ))}
+          </g>
+        </g>
+      </g>
+    </g>
+  )
+}
 
 /* ---------- leaderboard ---------- */
 function PostScore({ day, ft }: { day: number; ft: number }) {
@@ -301,6 +441,8 @@ function PostScore({ day, ft }: { day: number; ft: number }) {
   )
 }
 
+const MEDAL = ['🥇', '🥈', '🥉']
+
 export function RootsBoard() {
   const day = useMemo(() => berkeleyDay(), [])
   const [rows, setRows] = useState<BoardRow[] | null>(null)
@@ -313,26 +455,33 @@ export function RootsBoard() {
   useEffect(() => {
     let live = true
     if (boardOnline) void todayBoard(day).then((r) => live && setRows(r))
-    else setRows(localBoard())
+    else {
+      const run = loadRun(day)
+      setRows(placeholderBoard(day, run ? feetOf(run.picks) : null))
+    }
     return () => void (live = false)
   }, [day, tick])
   return (
     <section className="rg-board" aria-labelledby="rg-board-h">
-      <h4 id="rg-board-h" className="rg-board__h">{boardOnline ? 'Today’s deepest roots' : 'Your deepest roots'}</h4>
+      <div className="rg-board__top">
+        <h4 id="rg-board-h" className="rg-board__h">Today’s top 10</h4>
+        <span className="rg-board__live"><i aria-hidden="true" />live</span>
+      </div>
+      <p className="rg-board__reward">🏆 The top 3 deepest roots each day win a Sow reward.</p>
       {rows === null ? <p className="rg-board__empty">loading…</p>
-        : rows.length === 0 ? <p className="rg-board__empty">{boardOnline ? 'nobody yet. be the first.' : 'play today’s seven to get on the board.'}</p>
+        : rows.length === 0 ? <p className="rg-board__empty">nobody yet. be the first.</p>
         : (
           <ol className="rg-board__list">
             {rows.map((r, i) => (
-              <li key={i} className={i === 0 ? 'is-top' : ''}>
-                <span className="rg-board__rank">{i + 1}</span>
+              <li key={`${r.name}-${i}`} className={`${i < 3 ? `is-podium is-p${i + 1}` : ''} ${r.me ? 'is-me' : ''}`}>
+                <span className="rg-board__rank">{i < 3 ? MEDAL[i] : i + 1}</span>
                 <span className="rg-board__name">{r.name}</span>
                 <span className="rg-board__ft">{r.ft} ft</span>
               </li>
             ))}
           </ol>
         )}
-      {!boardOnline && <p className="rg-board__note">saved in this browser. the campus-wide board opens with the party server.</p>}
+      <p className="rg-board__note">resets at midnight, Berkeley time.</p>
     </section>
   )
 }

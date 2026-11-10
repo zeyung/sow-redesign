@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react'
 import Waitlist from './Waitlist'
 import Bearings from './Bearings'
-import DeepRoots, { RootsBoard } from './DeepRoots'
+import { DeepRootsCard } from './DeepRoots'
 import Scribbler from './Scribbler'
 import { Face, InkDefs, Scribble } from './Doodles'
 import { EVENTS, FAQ, PHOTOS, REACTIONS, RULES, SOURCES, STATS, STEPS, TRUCK, VENUE_POINTS } from './data'
@@ -311,15 +311,7 @@ function Games() {
           <p className="sub">Every find in Bearings moves you up the Berkeley waitlist.</p>
         </div>
         <div className="games">
-          <article className="console console--roots">
-            <div className="console__head">
-              <span className="tag tag--gold">New every day</span>
-              <h3>Deep Roots</h3>
-              <p>Seven quick prompts about campus life. The rarer your answer, the deeper your roots grow.</p>
-              <RootsBoard />
-            </div>
-            <div className="console__screen"><DeepRoots /></div>
-          </article>
+          <DeepRootsCard />
           <article className="console">
             <div className="console__head">
               <span className="tag tag--lime">New every day</span>
