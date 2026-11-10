@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react'
 import Waitlist from './Waitlist'
 import Bearings from './Bearings'
+import DeepRoots from './DeepRoots'
 import Scribbler from './Scribbler'
-import { Face, InkDefs, Roots, Scribble } from './Doodles'
+import { Face, InkDefs, Scribble } from './Doodles'
 import { EVENTS, FAQ, PHOTOS, REACTIONS, RULES, SOURCES, STATS, STEPS, TRUCK, VENUE_POINTS } from './data'
 import { ScrollTrigger, burst, confetti, countOnView, drawOnView, gsap, prefersReduced, setPaused, useGsap, usePaused } from './motion'
 
@@ -299,14 +300,8 @@ function Rules() {
 
 /* ---------- games ---------- */
 function Games() {
-  const ref = useGsap<HTMLElement>((root) => {
-    const roots = root.querySelectorAll('.roots__lines path')
-    const tl = gsap.timeline({ repeat: -1, repeatDelay: 0.8, scrollTrigger: { trigger: root.querySelector('.roots'), start: 'top 90%', toggleActions: 'play pause resume pause' } })
-    tl.fromTo(roots, { drawSVG: '0%' }, { drawSVG: '100%', duration: 1.2, stagger: 0.25, ease: 'power1.inOut' })
-    tl.to(roots, { opacity: 0.25, duration: 0.4 }, '+=0.8').set(roots, { opacity: 1, drawSVG: '0%' })
-  })
   return (
-    <section className="section section--cream" id="games" ref={ref} aria-labelledby="games-h">
+    <section className="section section--cream" id="games" aria-labelledby="games-h">
       <div className="wrap">
         <div className="head head--split">
           <div>
@@ -324,11 +319,13 @@ function Games() {
             </div>
             <div className="console__screen"><Bearings /></div>
           </article>
-          <article className="soon">
-            <span className="tag">Coming soon</span>
-            <h3>Deep Roots</h3>
-            <p>Quick prompts about campus life. The rarer your answer, the deeper your roots grow.</p>
-            <Roots />
+          <article className="console console--roots">
+            <div className="console__head">
+              <span className="tag tag--gold">New every day</span>
+              <h3>Deep Roots</h3>
+              <p>Seven quick prompts about campus life. The rarer your answer, the deeper your roots grow.</p>
+            </div>
+            <div className="console__screen"><DeepRoots /></div>
           </article>
         </div>
       </div>
